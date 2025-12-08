@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Choose Your Path – Trolley Problem Edition (Advanced)</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:#111;
+  color:#fff;
+  margin:0;
+  padding:0;
+}
+body::before{
+  content:"";
+  position:fixed;
+  top:0;left:0;width:100%;height:100%;
+  background:#000;
+  opacity:0.4;
+  z-index:-1;
+}
+.container {
+  max-width: 960px;
+  margin: 40px auto 60px auto;
+  padding: 0 16px;
+}
+
+/* Header */
+.header {
+  text-align:center;
+  margin-bottom:30px;
+}
+.header h1 {
+  font-size:2.2rem;
+  margin-bottom:10px;
+  text-shadow:0 0 14px #000;
+}
+.header p {
+  margin:4px 0;
+  color:#ddd;
+}
+
+/* Buttons & Cards */
+.choice-box, .meta-box {
+  background:#191919;
+  padding:20px;
+  border-radius:10px;
+  margin-bottom:20px;
+  box-shadow:0 0 18px rgba(0,0,0,0.6);
+  position:relative;
+  overflow:hidden;
+}
+button {
+  display:block;
+  width:100%;
+  padding:14px;
+  margin:8px 0;
+  border:none;
+  border-radius:6px;
+  background:#444;
+  color:white;
+  font-size:1rem;
+  cursor:pointer;
+  transition:0.25s;
+}
+button:hover {
+  background:#666;
+  transform:translateY(-1px);
+}
+
+/* Small buttons inline */
+.meta-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.meta-actions button {
+  width:auto;
+  flex:1;
+  min-width:140px;
+}
+
+/* Result */
+.result {
+  padding:20px;
+  background:#002b17;
+  border-radius:10px;
+  box-shadow:0 0 18px rgba(0,0,0,0.8);
+  display:none;
+}
+
+/* Chapter Intro Overlay */
+.chapter-intro {
+  position:fixed;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:rgba(0,0,0,0.95);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.8s ease;
+  z-index:50;
+}
+.chapter-intro.active {
+  opacity:1;
+  pointer-events:auto;
+}
+.chapter-intro h2 {
+  font-size:2.4rem;
+  margin-bottom:10px;
+}
+.chapter-intro p {
+  max-width:600px;
+  margin:0 auto 20px auto;
+}
+.chapter-intro button {
+  width:auto;
+  max-width:220px;
+}
+
+/* Transitions for steps */
+.choice-box.transition-out {
+  opacity:0;
+  transform:translateX(-20px);
+  filter:blur(4px);
+  transition:all 0.4s ease;
+}
+.choice-box.transition-in {
+  opacity:0;
+  transform:translateX(20px);
+  filter:blur(4px);
+}
+.choice-box.transition-in.show {
+  opacity:1;
+  transform:translateX(0);
+  filter:blur(0);
+  transition:all 0.4s ease;
+}
+
+/* Teacher dashboard */
+#teacherPanel {
+  display:none;
+  margin-top:20px;
+  background:#101010;
+  padding:16px;
+  border-radius:10px;
+}
+#teacherPanel h3 {
+  margin-top:0;
+}
+.teacher-table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:0.9rem;
+}
+.teacher-table th, .teacher-table td {
+  border:1px solid #333;
+  padding:6px 8px;
+  text-align:left;
+}
+.teacher-table th {
+  background:#222;
+}
+.small-note {
+  font-size:0.8rem;
+  color:#aaa;
+}
+</style>
+</head>
+<body>
+
+<div class="chapter-intro" id="chapterIntro">
+  <h2 id="chapterTitle">Kapitel 1</h2>
+  <p id="chapterText">Ein moralisches Dilemma beginnt…</p>
+  <button onclick="closeIntro()">Weiter</button>
+</div>
+
+<div class="container">
+  <div class="header">
+    <h1>Choose Your Path – Trolley Problem Edition</h1>
+    <p>Triff Entscheidungen – und sieh, welches moralische Profil daraus entsteht.</p>
+    <p id="profileInfo" class="small-note"></p>
+  </div>
+
+  <div class="meta-box">
+    <h2>Spielverwaltung</h2>
+    <p>Gib ein Kürzel ein (z.&nbsp;B. Initialen), damit dein Profil zugeordnet werden kann.</p>
+    <input id="playerName" type="text" placeholder="Name oder Kürzel" style="width:100%;padding:10px;border-radius:6px;border:none;margin:8px 0 12px 0;">
+    <div class="meta-actions">
+      <button onclick="newGame()">🆕 Neues Spiel</button>
+      <button onclick="loadGame()">💾 Fortschritt laden</button>
+      <button onclick="exportSave()">⬇ Speicherstand exportieren</button>
+      <button onclick="importSave()">⬆ Speicherstand importieren</button>
+      <button onclick="toggleTeacher()">👩‍🏫 Lehrer*innen-Ansicht</button>
+    </div>
+    <p class="small-note">Speicherstand &amp; Profile werden lokal im Browser (LocalStorage) gespeichert.</p>
+  </div>
+
+  <!-- GAME STEPS -->
+  <div id="step1" class="choice-box">
+    <h2>Level 1 – Klassisches Trolley-Problem</h2>
+    <p>Ein entführtes Flugzeug steuert auf ein voll besetztes Stadtzentrum zu. Wenn du nichts tust, sterben ca. 50&nbsp;000 Menschen.</p>
+    <p>Du hast drei Optionen:</p>
+    <button onclick="choose('L1','A','utilitarian','mediumRisk')">
+      A) Abschießen – 164 Tote (Passagiere), Stadtzentrum gerettet.
+    </button>
+    <button onclick="choose('L1','B','hybrid','highRisk')">
+      B) Abdrängen – 1&nbsp;200 Tote in einem Industriegebiet, Stadtzentrum gerettet.
+    </button>
+    <button onclick="choose('L1','C','deontological','lowRisk')">
+      C) Nichts tun – kein aktiver Eingriff, Stadtzentrum wird getroffen.
+    </button>
+  </div>
+
+  <div id="step2A" class="choice-box" style="display:none;">
+    <h2>Level 2 – Fat Man Variation</h2>
+    <p>Du hast dich bereits für eine utilitaristische Linie entschieden (Abschuss).</p>
+    <p>Nun erhältst du die Information, dass ein einziger Terrorist im Flugzeug die Kontrolle hat. Du könntest ein Manöver fliegen, das gezielt ihn trifft, aber vermutlich 12 Unschuldige tötet.</p>
+    <button onclick="choose('L2A','A','utilitarian','highRisk', 'endingB')">
+      A) Ich töte gezielt den Terroristen – 12 Unschuldige sterben zusätzlich, aber die Stadt ist sicher.
+    </button>
+    <button onclick="choose('L2A','B','deontological','highRisk', 'endingC')">
+      B) Ich lasse es – ich vermeide gezielte Tötung, nehme aber ein enormes Risiko in Kauf.
+    </button>
+  </div>
+
+  <div id="step2B" class="choice-box" style="display:none;">
+    <h2>Level 2 – Fat Man Variation</h2>
+    <p>Du hast die Mittelposition gewählt (Abdrängen). Jetzt wird klar: Der Terrorist könnte die Maschine erneut ausrichten.</p>
+    <button onclick="choose('L2B','A','utilitarian','mediumRisk', 'endingC')">
+      A) Ich töte den Terroristen gezielt – ich übernehme volle Verantwortung.
+    </button>
+    <button onclick="choose('L2B','B','deontological','lowRisk', 'endingA')">
+      B) Ich halte mich strikt ans Abwägungsverbot und töte niemanden gezielt.
+    </button>
+  </div>
+
+  <div id="step2C" class="choice-box" style="display:none;">
+    <h2>Level 2 – Fat Man Variation</h2>
+    <p>Du hast „Nichts tun“ gewählt. Du bist streng prinzipienorientiert – der Staat darf nicht aktiv töten.</p>
+    <button onclick="choose('L2C','A','deontological','lowRisk', 'endingA')">
+      A) Ich bleibe bei dieser Haltung, egal wie hoch der Schaden ist.
+    </button>
+    <button onclick="choose('L2C','B','utilitarian','highRisk', 'endingD')">
+      B) Ich ändere meine Position doch und entscheide mich für einen späteren Abschuss.
+    </button>
+  </div>
+
+  <!-- ENDINGS / PROFILE OUTPUT -->
+  <div id="endingA" class="result">
+    <h2>ENDING A – Der Gewissenhafte</h2>
+    <p>Du handelst streng prinzipientreu. Das Abwägungsverbot und die Menschenwürde stehen für dich über jeder Nutzenrechnung.</p>
+    <div id="profileA"></div>
+  </div>
+
+  <div id="endingB" class="result">
+    <h2>ENDING B – Der Retter</h2>
+    <p>Du wählst konsequent die Lösung mit den wenigsten Toten – auch um den Preis, aktiv zu töten.</p>
+    <div id="profileB"></div>
+  </div>
+
+  <div id="endingC" class="result">
+    <h2>ENDING C – Der Risikomanager</h2>
+    <p>Du versuchst, Verantwortung und Prinzipien auszubalancieren. Du gehst Risiken ein, ohne alle Prinzipien über Bord zu werfen.</p>
+    <div id="profileC"></div>
+  </div>
+
+  <div id="endingD" class="result">
+    <h2>ENDING D – Der Spieler</h2>
+    <p>Du wechselst Linien und Argumente – dein Profil zeigt Widersprüche, aber auch eine hohe Sensibilität für die Lage.</p>
+    <div id="profileD"></div>
+  </div>
+
+  <!-- Teacher Panel -->
+  <div id="teacherPanel">
+    <h3>Lehrer*innen-Ansicht (lokale Daten)</h3>
+    <p class="small-note">Alle Daten stammen nur aus diesem Browser (LocalStorage). Passwortschutz: nur didaktisch, nicht sicherheitskritisch.</p>
+    <div id="teacherSummary"></div>
+    <table class="teacher-table" id="teacherTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Ending</th>
+          <th>Utilitarismus</th>
+          <th>Deontologie</th>
+          <th>Risiko</th>
+          <th>Spieldauer (Sek.)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const SAVE_KEY = "terror_trolley_save_v1";
+const RUNS_KEY = "terror_trolley_runs_v1";
+let currentState = null;
+let gameStartTime = null;
+
+/* -------- Hilfsfunktionen Profil & Scoring -------- */
+function initState() {
+  const name = document.getElementById("playerName").value.trim() || "Unbekannt";
+  currentState = {
+    playerName: name,
+    decisions: [],
+    util: 0,
+    deon: 0,
+    hybrid: 0,
+    riskScore: 0,
+    startTime: Date.now(),
+    endTime: null,
+    ending: null
+  };
+  gameStartTime = currentState.startTime;
+  updateProfileInfo();
+}
+
+function updateProfileInfo() {
+  if (!currentState) {
+    document.getElementById("profileInfo").textContent = "";
+    return;
+  }
+  const total = currentState.util + currentState.deon + currentState.hybrid || 1;
+  const utilP = Math.round(currentState.util / total * 100);
+  const deonP = Math.round(currentState.deon / total * 100);
+  const hybP  = Math.round(currentState.hybrid / total * 100);
+  document.getElementById("profileInfo").textContent =
+    `Aktuelles Profil (${currentState.playerName}): Utilitarismus ${utilP}%, Deontologie ${deonP}%, Hybrid ${hybP}%.`;
+}
+
+function addDecision(level, option, ethic, riskLevel) {
+  if (!currentState) initState();
+  currentState.decisions.push({ level, option, ethic, riskLevel, t: Date.now() });
+  if (ethic === "utilitarian") currentState.util++;
+  if (ethic === "deontological") currentState.deon++;
+  if (ethic === "hybrid") currentState.hybrid++;
+  if (riskLevel === "lowRisk") currentState.riskScore += 1;
+  if (riskLevel === "mediumRisk") currentState.riskScore += 2;
+  if (riskLevel === "highRisk") currentState.riskScore += 3;
+  updateProfileInfo();
+}
+
+/* -------- Kapitelintros & Transitions -------- */
+function showIntro(title, text, nextStepId) {
+  const intro = document.getElementById("chapterIntro");
+  document.getElementById("chapterTitle").textContent = title;
+  document.getElementById("chapterText").textContent = text;
+  intro.dataset.next = nextStepId || "";
+  intro.classList.add("active");
+}
+
+function closeIntro() {
+  const intro = document.getElementById("chapterIntro");
+  const next = intro.dataset.next;
+  intro.classList.remove("active");
+  if (next) {
+    const el = document.getElementById(next);
+    if (el && el.classList.contains("transition-in")) {
+      setTimeout(() => {
+        el.classList.add("show");
+      }, 10);
+    }
+  }
+}
+
+/* Transition zwischen Boxen */
+function transitionTo(currentId, nextId, introTitle, introText) {
+  const current = currentId ? document.getElementById(currentId) : null;
+  const next = document.getElementById(nextId);
+  if (current) {
+    current.classList.add("transition-out");
+    setTimeout(() => {
+      current.style.display = "none";
+    }, 350);
+  }
+  if (next) {
+    next.style.display = "block";
+    next.classList.add("transition-in");
+  }
+  if (introTitle && introText) {
+    showIntro(introTitle, introText, nextId);
+  } else if (next) {
+    setTimeout(() => next.classList.add("show"), 20);
+  }
+}
+
+/* -------- Spiel-Logik -------- */
+function newGame() {
+  // Reset UI
+  document.querySelectorAll(".choice-box").forEach(el => {
+    el.style.display = "none";
+    el.classList.remove("transition-in","transition-out","show");
+  });
+  document.querySelectorAll(".result").forEach(el => el.style.display = "none");
+
+  initState();
+  document.getElementById("step1").style.display = "block";
+  document.getElementById("step1").classList.add("transition-in");
+  setTimeout(() => document.getElementById("step1").classList.add("show"), 20);
+  // Intro für Kapitel 1
+  showIntro("Kapitel 1 – Der erste Schlagabtausch", "Du siehst nur wenige Daten auf dem Radarschirm – aber du musst sofort entscheiden.", "step1");
+}
+
+function choose(level, option, ethic, riskLevel, endingOptional) {
+  addDecision(level, option, ethic, riskLevel);
+
+  // Routing der Pfade
+  if (level === "L1") {
+    if (option === "A") {
+      transitionTo("step1","step2A","Kapitel 2 – Der gezielte Schlag","Du hast dich für den Abschuss entschieden. Jetzt stellt sich die Frage, wie weit du gehen willst.");
+    } else if (option === "B") {
+      transitionTo("step1","step2B","Kapitel 2 – Der Mittelweg","Du hast den Mittelweg gewählt. Aber der Terrorist könnte noch einmal reagieren.");
+    } else if (option === "C") {
+      transitionTo("step1","step2C","Kapitel 2 – Die Folgen der Passivität","Du hast nicht eingegriffen. Jetzt geht es um die Konsequenzen dieser Entscheidung.");
+    }
+    saveGame();
+    return;
+  }
+
+  // Level 2 Pfade enden im jeweiligen Ending
+  if (level === "L2A" || level === "L2B" || level === "L2C") {
+    if (endingOptional) {
+      finishGame(endingOptional);
+    }
+  }
+}
+
+function finishGame(endingId) {
+  if (!currentState) return;
+  currentState.ending = endingId;
+  currentState.endTime = Date.now();
+  saveRun();
+  saveGame(true); // final save
+
+  // UI umschalten
+  document.querySelectorAll(".choice-box").forEach(el => {
+    el.style.display = "none";
+  });
+  document.querySelectorAll(".result").forEach(el => {
+    el.style.display = "none";
+  });
+  const res = document.getElementById(endingId);
+  if (res) {
+    res.style.display = "block";
+  }
+  renderProfileEnding(endingId);
+}
+
+/* -------- Speichern & Laden -------- */
+function saveGame(final=false) {
+  if (!currentState) return;
+  const data = JSON.stringify(currentState);
+  localStorage.setItem(SAVE_KEY, data);
+  if (final) {
+    // could show small toast
+  }
+}
+
+function loadGame() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) {
+    alert("Kein Speicherstand gefunden.");
+    return;
+  }
+  try {
+    currentState = JSON.parse(raw);
+  } catch(e) {
+    alert("Speicherstand konnte nicht geladen werden.");
+    return;
+  }
+  updateProfileInfo();
+  alert("Speicherstand geladen. Starte ein neues Spiel, um mit deinem Profil weiterzuspielen.");
+}
+
+function exportSave() {
+  if (!currentState) {
+    alert("Kein aktiver Speicherstand – starte zuerst ein Spiel.");
+    return;
+  }
+  const blob = new Blob([JSON.stringify(currentState,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "trolley_save_"+(currentState.playerName||"profil")+".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importSave() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        currentState = data;
+        updateProfileInfo();
+        saveGame();
+        alert("Speicherstand importiert. Starte ein neues Spiel, um mit diesem Profil zu spielen.");
+      } catch(err) {
+        alert("Datei konnte nicht gelesen werden.");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+/* -------- Runs & Lehrer*innen-Ansicht -------- */
+function saveRun() {
+  try {
+    const raw = localStorage.getItem(RUNS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    const durationSec = currentState.endTime ? Math.round((currentState.endTime - currentState.startTime)/1000) : null;
+    const total = currentState.util + currentState.deon + currentState.hybrid || 1;
+    arr.push({
+      playerName: currentState.playerName,
+      ending: currentState.ending,
+      util: currentState.util,
+      deon: currentState.deon,
+      hybrid: currentState.hybrid,
+      utilP: Math.round(currentState.util/total*100),
+      deonP: Math.round(currentState.deon/total*100),
+      hybridP: Math.round(currentState.hybrid/total*100),
+      riskScore: currentState.riskScore,
+      durationSec: durationSec
+    });
+    localStorage.setItem(RUNS_KEY, JSON.stringify(arr));
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function toggleTeacher() {
+  const pw = prompt("Passwort für Lehrer*innen-Ansicht (Vorschlag: 'terror'):");
+  if (pw !== "terror") {
+    alert("Falsches Passwort.");
+    return;
+  }
+  const panel = document.getElementById("teacherPanel");
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+  if (panel.style.display === "block") {
+    renderTeacher();
+  }
+}
+
+function renderTeacher() {
+  const raw = localStorage.getItem(RUNS_KEY);
+  const arr = raw ? JSON.parse(raw) : [];
+  const tbody = document.querySelector("#teacherTable tbody");
+  tbody.innerHTML = "";
+  let sumUtil=0,sumDeon=0,sumRisk=0;
+  arr.forEach(run => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${run.playerName||""}</td>
+                    <td>${run.ending||""}</td>
+                    <td>${run.utilP||0}%</td>
+                    <td>${run.deonP||0}%</td>
+                    <td>${run.riskScore||0}</td>
+                    <td>${run.durationSec!=null?run.durationSec:""}</td>`;
+    tbody.appendChild(tr);
+    sumUtil += run.utilP||0;
+    sumDeon += run.deonP||0;
+    sumRisk += run.riskScore||0;
+  });
+  const summary = document.getElementById("teacherSummary");
+  if (arr.length === 0) {
+    summary.innerHTML = "<p>Noch keine Daten vorhanden.</p>";
+  } else {
+    const avgUtil = Math.round(sumUtil/arr.length);
+    const avgDeon = Math.round(sumDeon/arr.length);
+    const avgRisk = Math.round(sumRisk/arr.length);
+    summary.innerHTML = `<p>Datensätze: ${arr.length}</p>
+                         <p>Durchschnitt Utilitarismus: ${avgUtil}% – Durchschnitt Deontologie: ${avgDeon}%</p>
+                         <p>Durchschnittlicher Risikoscore: ${avgRisk}</p>`;
+  }
+}
+
+/* -------- Ending-Profile Rendering -------- */
+function renderProfileEnding(endingId) {
+  if (!currentState) return;
+  const total = currentState.util + currentState.deon + currentState.hybrid || 1;
+  const utilP = Math.round(currentState.util/total*100);
+  const deonP = Math.round(currentState.deon/total*100);
+  const hybP  = Math.round(currentState.hybrid/total*100);
+  const risk  = currentState.riskScore;
+  const durationSec = currentState.endTime ? Math.round((currentState.endTime - currentState.startTime)/1000) : "?";
+  const text = `<p><b>Profil (${currentState.playerName}):</b><br>
+                Utilitarismus: ${utilP}% | Deontologie: ${deonP}% | Hybrid: ${hybP}%<br>
+                Risikoscore: ${risk} | Spieldauer: ${durationSec} Sekunden.</p>`;
+  const target = document.querySelector("#"+endingId+" div[id^='profile']");
+  if (target) {
+    target.innerHTML = text;
+  }
+}
+
+/* Auto-Start Intro Hinweis */
+window.addEventListener("load", () => {
+  // Kein automatischer Spielstart, aber Hinweis im Profil, falls Save existiert
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      currentState = s;
+      updateProfileInfo();
+    } catch(e){}
+  }
+});
+</script>
+
+</body>
+</html>
